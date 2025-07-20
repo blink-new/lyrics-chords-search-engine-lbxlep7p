@@ -25,7 +25,7 @@ export function SearchBar({ onSearch, isLoading = false }: SearchBarProps) {
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
           <Input
             type="text"
-            placeholder="Search for songs, artists, or lyrics..."
+            placeholder="Search any song: 'Bohemian Rhapsody by Queen' or 'Hotel California'"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-12 pr-24 h-14 text-lg bg-white border-2 border-gray-200 focus:border-primary rounded-xl shadow-sm"

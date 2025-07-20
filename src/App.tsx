@@ -3,6 +3,7 @@ import { SearchBar } from './components/SearchBar'
 import { SongCard } from './components/SongCard'
 import { ChordLyricsDisplay } from './components/ChordLyricsDisplay'
 import { sampleSongs, type Song } from './data/sampleSongs'
+import { searchSongs, fetchLyrics, convertLyricsToChordFormat, type SearchResult } from './services/lyricsApi'
 import { Music, Guitar } from 'lucide-react'
 
 function App() {
@@ -10,22 +11,89 @@ function App() {
   const [selectedSong, setSelectedSong] = useState<Song | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSearch = async (query: string) => {
     setIsLoading(true)
     setHasSearched(true)
+    setError(null)
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800))
+    try {
+      // First check if query matches any sample songs
+      const sampleResults = sampleSongs.filter(song => 
+        song.title.toLowerCase().includes(query.toLowerCase()) ||
+        song.artist.toLowerCase().includes(query.toLowerCase()) ||
+        (song.album && song.album.toLowerCase().includes(query.toLowerCase()))
+      )
+      
+      if (sampleResults.length > 0) {
+        setSearchResults(sampleResults)
+        setIsLoading(false)
+        return
+      }
+      
+      // If no sample songs match, try to fetch real lyrics
+      // Parse the query to extract artist and title
+      const parts = query.split(' by ')
+      let artist = ''
+      let title = ''
+      
+      if (parts.length === 2) {
+        title = parts[0].trim()
+        artist = parts[1].trim()
+      } else {
+        // Try to guess from the query
+        const words = query.split(' ')
+        if (words.length >= 2) {
+          // Assume first half is title, second half is artist
+          const midPoint = Math.ceil(words.length / 2)
+          title = words.slice(0, midPoint).join(' ')
+          artist = words.slice(midPoint).join(' ')
+        } else {
+          title = query
+          artist = 'Unknown Artist'
+        }
+      }
+      
+      try {
+        const lyrics = await fetchLyrics(artist, title)
+        const songData = convertLyricsToChordFormat(lyrics, title, artist)
+        setSearchResults([songData])
+      } catch (lyricsError) {
+        // If lyrics fetch fails, create a placeholder song
+        const placeholderSong: Song = {
+          id: `search-${Date.now()}`,
+          title: title,
+          artist: artist,
+          key: 'C',
+          tempo: '120',
+          chordLines: [
+            {
+              chords: ['C', 'G', 'Am', 'F'],
+              lyrics: `Sorry, we couldn't find lyrics for "${title}" by ${artist}`,
+              positions: [0, 8, 15, 25]
+            },
+            {
+              chords: ['C', 'G', 'F', 'C'],
+              lyrics: 'Try searching with format: "Song Title by Artist Name"',
+              positions: [0, 8, 15, 30]
+            },
+            {
+              chords: ['Am', 'F', 'C', 'G'],
+              lyrics: 'Or browse our featured songs below',
+              positions: [0, 8, 15, 25]
+            }
+          ]
+        }
+        setSearchResults([placeholderSong])
+      }
+      
+    } catch (error) {
+      console.error('Search error:', error)
+      setError('Failed to search for songs. Please try again.')
+      setSearchResults([])
+    }
     
-    // Filter sample songs based on query
-    const results = sampleSongs.filter(song => 
-      song.title.toLowerCase().includes(query.toLowerCase()) ||
-      song.artist.toLowerCase().includes(query.toLowerCase()) ||
-      (song.album && song.album.toLowerCase().includes(query.toLowerCase()))
-    )
-    
-    setSearchResults(results)
     setIsLoading(false)
   }
 
@@ -77,7 +145,7 @@ function App() {
           {!hasSearched && (
             <div className="mt-8">
               <p className="text-gray-500 mb-6">
-                Try searching for popular songs like "Amazing Grace", "Wonderwall", or "Let It Be"
+                Search for any song! Try formats like "Bohemian Rhapsody by Queen" or "Hotel California Eagles"
               </p>
               
               {/* Featured Songs */}
@@ -98,7 +166,17 @@ function App() {
         {isLoading && (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
-            <p className="text-gray-600">Searching for songs...</p>
+            <p className="text-gray-600">Searching for lyrics and chords...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="text-center py-12">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+              <p className="text-red-600 font-medium mb-2">Search Error</p>
+              <p className="text-red-500 text-sm">{error}</p>
+            </div>
           </div>
         )}
 
